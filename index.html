@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADMINISTRAÇÃO ARTHUR — gestão de clientes, comandas e pagamentos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg-body: #0b0f19;
+      --bg-card: #131b2e;
+      --bg-input: #0e1424;
+      --border-subtle: #23304d;
+      --accent-gold: #d4af37;
+      --accent-gold-hover: #e5c158;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top right, #162038, var(--bg-body) 60%);
+      color: var(--text-main);
+      padding: 24px 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: linear-gradient(145deg, #162038, #111827);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      padding: 22px 26px;
+      border-radius: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 1.55rem;
+      letter-spacing: 1.2px;
+      color: var(--accent-gold);
+      font-weight: 700;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-top: 4px;
+    }
+
+    .status-db {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 0.76rem;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-db.aviso {
+      background: rgba(245, 158, 11, 0.14);
+      color: #fcd34d;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .resumo-topo {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .box-kpi {
+      background: rgba(11, 15, 25, 0.75);
+      border: 1px solid var(--border-subtle);
+      padding: 12px 18px;
+      border-radius: 12px;
+      min-width: 165px;
+      backdrop-filter: blur(6px);
+    }
+
+    .box-kpi span {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .box-kpi strong {
+      font-size: 1.2rem;
+      color: var(--text-main);
+      display: block;
+      margin-top: 3px;
+    }
+
+    .kpi-recebido strong {
+      color: var(--accent-emerald);
+    }
+
+    .kpi-pendente strong {
+      color: var(--accent-amber);
+    }
+
+    .grid-principal {
+      display: grid;
+      grid-template-columns: 1fr 1.38fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .grid-principal {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+
+    .card h2 {
+      font-size: 1.05rem;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--accent-gold);
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      color: var(--text-main);
+      font-size: 0.92rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--accent-gold);
+      background: linear-gradient(135deg, var(--accent-gold), #b89225);
+      color: #0b0f19;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, var(--accent-gold-hover), var(--accent-gold));
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      background: rgba(212, 175, 55, 0.08);
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+
+    .produtos-r
+    dos {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .prod-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 12px 12px;
+      border-radius: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .prod-btn:hover {
+      border-color: var(--accent-gold);
+      background: #18233c;
+      transform: translateY(-1px);
+    }
+
+    .prod-btn strong {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .prod-btn span {
+      font-size: 0.82rem;
+      color: var(--accent-gold);
+    }
+
+    .lista-itens-comanda {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      min-height: 68px;
+    }
+
+    .item-linha {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 4px;
+      border-bottom: 1px solid rgba(35, 48, 77, 0.6);
+      font-size: 0.88rem;
+    }
+
+    .item-linha:last-child {
+      border-bottom: none;
+    }
+
+    .total-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.18rem;
+      font-weight: 700;
+      padding: 14px 0;
+      border-top: 1px dashed var(--border-subtle);
+      color: var(--accent-gold);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 11px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .status-tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-aberta {
+      background: rgba(244, 63, 94, 0.16);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .status-parcial {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .status-paga {
+      background: rgba(16, 185, 129, 0.16);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-fiado {
+      background: rgba(245, 158, 11, 0.18);
+      color: #fcd34d;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .modal-fundo {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 9, 17, 0.84);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 999;
+    }
+
+    .modal-fundo.ativo {
+      display: flex;
+    }
+
+    .modal-caixa {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 460px;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>ADMINISTRAÇÃO ARTHUR</h1>
+        <p>gestão executiva de clientes, comandas e pagamentos</p>
+        <span id="statusConexao" class="status-db aviso">iniciando sistema...</span>
+      </div>
+      <div class="resumo-topo">
+        <div class="box-kpi">
+          <span>total geral vendido</span>
+          <strong id="kpiTotalGeral">R$ 0,00</strong>
+        </div>
+        <div class="box-kpi kpi-recebido">
+          <span>total recebido (caixa)</span>
+          <strong id="kpiRecebido">R$ 0,00</strong>
+        </div>
+        <div class="box-kpi kpi-pendente">
+          <span>saldo a receber (fiado/aberto)</span>
+          <strong id="kpiPendente">R$ 0,00</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid-principal">
+      <div>
+        <div class="card">
+          <h2>1. cadastrar cliente</h2>
+          <form onsubmit="cadastrarCliente(event)">
+            <div class="form-group">
+              <label>nome do cliente *</label>
+              <input type="text" id="nomeCliente" placeholder="ex: joão da silva" required />
+            </div>
+            <div class="form-group">
+              <label>telefone / whatsapp</label>
+              <input type="text" id="telefoneCliente" placeholder="ex: (41) 99999-9999" />
+            </div>
+            <button type="submit" id="btnSalvarCliente" class="btn" style="width:100%;">+ salvar cliente</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>2. cadastrar novo produto</h2>
+          <form onsubmit="cadastrarProduto(event)">
+            <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:10px;">
+              <div class="form-group">
+                <label>nome do produto *</label>
+                <input type="text" id="nomeProduto" placeholder="ex: queijo colonial" required />
+              </div>
+              <div class="form-group">
+                <label>preço (R$) *</label>
+                <input type="number" id="precoProduto" step="0.01" min="0.01" placeholder="25.00" required />
+              </div>
+            </div>
+            <button type="submit" id="btnSalvarProduto" class="btn btn-outline" style="width:100%;">+ adicionar ao catálogo</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h2 style="border:none;margin:0;padding:0;">movimentações e pagamentos</h2>
+            <select id="filtroFormaPagto" style="width:auto;padding:6px 10px;font-size:0.82rem;" onchange="renderizarHistoricoPagamentos()">
+              <option value="TODAS">todas as formas</option>
+              <option value="pix">pix</option>
+              <option value="dinheiro">dinheiro</option>
+              <option value="cartão">cartão</option>
+              <option value="fiado">fiado</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto;max-height:310px;overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>data</th>
+                  <th>cliente</th>
+                  <th>forma</th>
+                  <th>valor</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaPagamentosGerais"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>3. abrir nova comanda</h2>
+          <div class="form-group">
+            <label>selecione o cliente *</label>
+            <select id="selectClienteComanda">
+              <option value="">-- escolha um cliente --</option>
+            </select>
+          </div>
+
+          <label>clique nos produtos para adicionar à comanda:</label>
+          <div class="produtos-rapidos" id="catalogoProdutos"></div>
+
+          <label>itens na comanda atual:</label>
+          <div class="lista-itens-comanda" id="itensComandaAtual">
+            <p style="color:var(--text-muted);font-size:0.84rem;text-align:center;padding:14px 0;">nenhum produto adicionado ainda.</p>
+          </div>
+
+          <div class="total-box">
+            <span>total da comanda:</span>
+            <span id="totalComandaAtual">R$ 0,00</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label id="labelEntradaComanda">entrada paga agora (R$)</label>
+              <input type="number" id="entradaComanda" step="0.01" min="0" value="0" />
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>forma de pagamento</label>
+              <select id="formaEntradaComanda" onchange="ajustarCampoEntrada()">
+                <option value="pix">pix</option>
+                <option value="dinheiro">dinheiro</option>
+                <option value="cartão">cartão</option>
+                <option value="fiado">fiado (pagar depois)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <button type="button" class="btn btn-outline" onclick="limparComandaAtual()">limpar itens</button>
+            <button type="button" id="btnSalvarComanda" class="btn" onclick="salvarComanda()">salvar comanda</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+            <h2 style="border:none;margin:0;padding:0;">4. comandas & pagamentos</h2>
+            <select id="filtroStatusComanda" style="width:auto;padding:6px 10px;" onchange="renderizarComandas()">
+              <option value="TODAS">todas as comandas</option>
+              <option value="pendentes">em aberto / fiado / parciais</option>
+              <option value="paga">quitadas (pagas)</option>
+            </select>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>cliente</th>
+                  <th>itens</th>
+                  <th>total</th>
+                  <th>pago</th>
+                  <th>falta</th>
+                  <th>status</th>
+                  <th>ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaComandas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPagamento" class="modal-fundo" onclick="if(event.target===this) fecharModalPagamento()">
+    <div class="modal-caixa">
+      <h3 style="margin-bottom:12px;font-size:1.05rem;color:var(--accent-gold);">registrar pagamento da comanda</h3>
+      <p id="modalInfoCliente" style="font-size:0.88rem;color:var(--text-muted);margin-bottom:14px;"></p>
+
+      <div class="form-group">
+        <label>valor recebido (R$) *</label>
+        <input type="number" id="modalValorPago" step="0.01" min="0.01" />
+      </div>
+
+      <div class="form-group">
+        <label>forma de pagamento *</label>
+        <select id="modalFormaPagto">
+          <option value="pix">pix</option>
+          <option value="dinheiro">dinheiro</option>
+          <option value="cartão">cartão</option>
+          <option value="fiado">fiado</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>observação (opcional)</label>
+        <input type="text" id="modalObsPagto" placeholder="ex: pagamento parcial via pix" />
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <button type="button" class="btn btn-outline" onclick="fecharModalPagamento()">cancelar</button>
+        <button type="button" id="btnConfirmarPagto" class="btn" onclick="confirmarRecebimento()">confirmar registro</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // COLE AQUI A URL E A ANON KEY DO SEU PROJETO SUPABASE
+    // =========================================================================
+    const SUPABASE_URL = 'https://rostzjpjuwodlqvvojez.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_fmwQ0WwTHVg_kbftVU5GAQ_KkknImYP';
+
+    const PRODUTOS_PADRAO = [
+      { id: 'p1', nome: 'salame', preco: 35.00 },
+      { id: 'p2', nome: 'linguiça', preco: 28.00 },
+      { id: 'p3', nome: 'queijo', preco: 32.00 },
+      { id: 'p4', nome: 'bebida', preco: 8.00 }
+    ];
+
+    let supabaseClient = null;
+    let usandoSupabase = false;
+
+    try {
+      if (
+        window.supabase &&
+        SUPABASE_URL.startsWith('https://') &&
+        !SUPABASE_URL.includes('SEU-PROJETO') &&
+        !SUPABASE_ANON_KEY.includes('SUA_CHAVE')
+      ) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        usandoSupabase = true;
+      }
+    } catch (e) {
+      usandoSupabase = false;
+    }
+
+    let clientes = JSON.parse(localStorage.getItem('arthur_clientes')) || [];
+    let produtos = JSON.parse(localStorage.getItem('arthur_produtos')) || PRODUTOS_PADRAO;
+    let comandas = JSON.parse(localStorage.getItem('arthur_comandas')) || [];
+    let pagamentos = JSON.parse(localStorage.getItem('arthur_pagamentos')) || [];
+    let carrinhoAtual = [];
+    let comandaSelecionadaId = null;
+
+    function salvarLocal() {
+      localStorage.setItem('arthur_clientes', JSON.stringify(clientes));
+      localStorage.setItem('arthur_produtos', JSON.stringify(produtos));
+      localStorage.setItem('arthur_comandas', JSON.stringify(comandas));
+      localStorage.setItem('arthur_pagamentos', JSON.stringify(pagamentos));
+    }
+
+    function atualizarStatusConexao(conectado, mensagem) {
+      const badge = document.getElementById('statusConexao');
+      badge.textContent = mensagem;
+      if (conectado) {
+        badge.classList.remove('aviso');
+      } else {
+        badge.classList.add('aviso');
+      }
+    }
+
+    async function inicializarSistema() {
+      renderizarTudo();
+
+      if (!usandoSupabase) {
+        atualizarStatusConexao(false, 'modo local ativo (cole a url e a chave do supabase acima para usar a nuvem)');
+        return;
+      }
+
+      try {
+        const [resClientes, resProdutos, resComandas, resPagamentos] = await Promise.all([
+          supabaseClient.from('clientes').select('*').order('nome', { ascending: true }),
+          supabaseClient.from('produtos').select('*').order('created_at', { ascending: true }),
+          supabaseClient.from('comandas').select('*').order('created_at', { ascending: false }),
+          supabaseClient.from('pagamentos').select('*').order('created_at', { ascending: false })
+        ]);
+
+        if (resClientes.error) throw resClientes.error;
+        if (resProdutos.error) throw resProdutos.error;
+        if (resComandas.error) throw resComandas.error;
+        if (resPagamentos.error) throw resPagamentos.error;
+
+        clientes = resClientes.data || [];
+        produtos = (resProdutos.data && resProdutos.data.length) ? resProdutos.data : PRODUTOS_PADRAO;
+        comandas = (resComandas.data || []).map(c => ({
+          ...c,
+          clienteId: c.cliente_id,
+          clienteNome: c.cliente_nome,
+          formaInicial: c.forma_inicial
+        }));
+        pagamentos = (resPagamentos.data || []).map(p => ({
+          ...p,
+          comandaId: p.comanda_id,
+          clienteNome: p.cliente_nome
+        }));
+
+        salvarLocal();
+        atualizarStatusConexao(true, 'banco de dados supabase conectado');
+        renderizarTudo();
+      } catch (erro) {
+        usandoSupabase = false;
+        atualizarStatusConexao(false, 'falha no supabase (operando localmente): ' + erro.message.toLowerCase());
+      }
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function ajustarCampoEntrada() {
+      const forma = document.getElementById('formaEntradaComanda').value;
+      const inputEntrada = document.getElementById('entradaComanda');
+      if (forma === 'fiado') {
+        inputEntrada.value = 0;
+        inputEntrada.disabled = true;
+      } else {
+        inputEntrada.disabled = false;
+      }
+    }
+
+    async function cadastrarCliente(e) {
+      e.preventDefault();
+      const nome = document.getElementById('nomeCliente').value.trim().toLowerCase();
+      const telefone = document.getElementById('telefoneCliente').value.trim().toLowerCase();
+      if (!nome) return;
+
+      const btn = document.getElementById('btnSalvarCliente');
+      btn.disabled = true;
+
+      const novo = { id: 'c_' + Date.now(), nome, telefone };
+
+      if (usandoSupabase) {
+        const { error } = await supabaseClient.from('clientes').insert([novo]);
+        if (error) {
+          btn.disabled = false;
+          alert('erro ao salvar cliente no supabase: ' + error.message.toLowerCase());
+          return;
+        }
+      }
+
+      clientes.push(novo);
+      salvarLocal();
+      btn.disabled = false;
+
+      document.getElementById('nomeCliente').value = '';
+      document.getElementById('telefoneCliente').value = '';
+      renderizarClientes();
+      document.getElementById('selectClienteComanda').value = novo.id;
+    }
+
+    async function cadastrarProduto(e) {
+      e.preventDefault();
+      const nome = document.getElementById('nomeProduto').value.trim().toLowerCase();
+      const preco = parseFloat(document.getElementById('precoProduto').value);
+      if (!nome || isNaN(preco)) return;
+
+      const btn = document.getElementById('btnSalvarProduto');
+      btn.disabled = true;
+
+      const novoProd = { id: 'p_' + Date.now(), nome, preco };
+
+      if (usandoSupabase) {
+        const { error } = await supabaseClient.from('produtos').insert([novoProd]);
+        if (error) {
+          btn.disabled = false;
+          alert('erro ao salvar produto no supabase: ' + error.message.toLowerCase());
+          return;
+        }
+      }
+
+      produtos.push(novoProd);
+      salvarLocal();
+      btn.disabled = false;
+
+      document.getElementById('nomeProduto').value = '';
+      document.getElementById('precoProduto').value = '';
+      renderizarProdutos();
+    }
+
+    function renderizarClientes() {
+      const select = document.getElementById('selectClienteComanda');
+      const atual = select.value;
+      select.innerHTML = '<option value="">-- escolha um cliente --</option>' +
+        clientes.map(c => `<option value="${c.id}">${c.nome.toLowerCase()}${c.telefone ? ' (' + c.telefone.toLowerCase() + ')' : ''}</option>`).join('');
+      select.value = atual;
+    }
+
+    function renderizarProdutos() {
+      const box = document.getElementById('catalogoProdutos');
+      box.innerHTML = produtos.map(p => `
+        <button type="button" class="prod-btn" onclick="adicionarNaComanda('${p.id}')">
+          <strong>+ ${p.nome.toLowerCase()}</strong>
+          <span>${formatarMoeda(p.preco)}</span>
+        </button>
+      `).join('');
+    }
+
+    function adicionarNaComanda(prodId) {
+      const prod = produtos.find(p => p.id === prodId);
+      if (!prod) return;
+
+      const existente = carrinhoAtual.find(i => i.id === prodId);
+      if (existente) {
+        existente.qtd += 1;
+      } else {
+        carrinhoAtual.push({ id: prod.id, nome: prod.nome.toLowerCase(), preco: Number(prod.preco), qtd: 1 });
+      }
+      renderizarCarrinho();
+    }
+
+    function alterarQtd(prodId, delta) {
+      const item = carrinhoAtual.find(i => i.id === prodId);
+      if (!item) return;
+      item.qtd += delta;
+      if (item.qtd <= 0) {
+        carrinhoAtual = carrinhoAtual.filter(i => i.id !== prodId);
+      }
+      renderizarCarrinho();
+    }
+
+    function limparComandaAtual() {
+      carrinhoAtual = [];
+      document.getElementById('entradaComanda').value = 0;
+      document.getElementById('entradaComanda').disabled = false;
+      document.getElementById('formaEntradaComanda').value = 'pix';
+      renderizarCarrinho();
+    }
+
+    function renderizarCarrinho() {
+      const box = document.getElementById('itensComandaAtual');
+      if (!carrinhoAtual.length) {
+        box.innerHTML = '<p style="color:var(--text-muted);font-size:0.84rem;text-align:center;padding:14px 0;">nenhum produto adicionado ainda.</p>';
+        document.getElementById('totalComandaAtual').textContent = 'R$ 0,00';
+        return;
+      }
+
+      let total = 0;
+      box.innerHTML = carrinhoAtual.map(item => {
+        const subtotal = item.preco * item.qtd;
+        total += subtotal;
+        return `
+          <div class="item-linha">
+            <div>
+              <strong>${item.nome.toLowerCase()}</strong> (${formatarMoeda(item.preco)})
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="alterarQtd('${item.id}', -1)">-</button>
+              <span>${item.qtd}</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="alterarQtd('${item.id}', 1)">+</button>
+              <strong style="min-width:75px;text-align:right;">${formatarMoeda(subtotal)}</strong>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('totalComandaAtual').textContent = formatarMoeda(total);
+    }
+
+    async function salvarComanda() {
+      const clienteId = document.getElementById('selectClienteComanda').value;
+      if (!clienteId) {
+        alert('selecione ou cadastre um cliente antes de salvar a comanda.');
+        return;
+      }
+      if (!carrinhoAtual.length) {
+        alert('adicione pelo menos um produto na comanda.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSalvarComanda');
+      btn.disabled = true;
+
+      const cliente = clientes.find(c => c.id === clienteId);
+      const total = Number(carrinhoAtual.reduce((acc, item) => acc + (item.preco * item.qtd), 0).toFixed(2));
+      const formaSelecionada = document.getElementById('formaEntradaComanda').value.toLowerCase();
+
+      let pago = formaSelecionada === 'fiado'
+        ? 0
+        : Math.max(0, parseFloat(document.getElementById('entradaComanda').value) || 0);
+
+      if (pago > total) pago = total;
+
+      const restante = Number((total - pago).toFixed(2));
+      const status = restante === 0 ? 'paga' : (pago > 0 ? 'parcial' : 'aberta');
+      const dataHoje = new Date().toLocaleDateString('pt-BR');
+      const comandaId = 'cmd_' + Date.now();
+
+      const novaComandaDb = {
+        id: comandaId,
+        cliente_id: cliente.id,
+        cliente_nome: cliente.nome.toLowerCase(),
+        itens: [...carrinhoAtual],
+        total,
+        pago,
+        restante,
+        status,
+        forma_inicial: formaSelecionada,
+        data: dataHoje
+      };
+
+      if (usandoSupabase) {
+        const { error: errComanda } = await supabaseClient.from('comandas').insert([novaComandaDb]);
+        if (errComanda) {
+          btn.disabled = false;
+          alert('erro ao salvar comanda: ' + errComanda.message.toLowerCase());
+          return;
+        }
+      }
+
+      comandas.unshift({
+        ...novaComandaDb,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome.toLowerCase(),
+        formaInicial: formaSelecionada
+      });
+
+      let novoPagtoDb = null;
+      if (formaSelecionada === 'fiado') {
+        novoPagtoDb = {
+          id: 'pag_' + Date.now(),
+          comanda_id: comandaId,
+          cliente_nome: cliente.nome.toLowerCase(),
+          valor: total,
+          forma: 'fiado',
+          obs: 'lançado no fiado (a receber)',
+          data: dataHoje
+        };
+      } else if (pago > 0) {
+        novoPagtoDb = {
+          id: 'pag_' + Date.now(),
+          comanda_id: comandaId,
+          cliente_nome: cliente.nome.toLowerCase(),
+          valor: pago,
+          forma: formaSelecionada,
+          obs: restante === 0 ? 'quitação na abertura' : 'entrada na abertura',
+          data: dataHoje
+        };
+      }
+
+      if (novoPagtoDb) {
+        if (usandoSupabase) {
+          await supabaseClient.from('pagamentos').insert([novoPagtoDb]);
+        }
+        pagamentos.unshift({
+          ...novoPagtoDb,
+          comandaId: novoPagtoDb.comanda_id,
+          clienteNome: novoPagtoDb.cliente_nome
+        });
+      }
+
+      salvarLocal();
+      btn.disabled = false;
+      limparComandaAtual();
+      renderizarTudo();
+    }
+
+    function abrirModalPagamento(comandaId) {
+      const cmd = comandas.find(c => c.id === comandaId);
+      if (!cmd) return;
+
+      const saldo = cmd.restante !== undefined ? Number(cmd.restante) : (cmd.status === 'paga' ? 0 : Number(cmd.total));
+      if (saldo <= 0) return;
+
+      comandaSelecionadaId = comandaId;
+      document.getElementById('modalInfoCliente').innerHTML =
+        `cliente: <strong>${cmd.clienteNome.toLowerCase()}</strong><br>total: ${formatarMoeda(cmd.total)} | falta pagar: <strong>${formatarMoeda(saldo)}</strong>`;
+      document.getElementById('modalValorPago').value = saldo.toFixed(2);
+      document.getElementById('modalValorPago').max = saldo.toFixed(2);
+      document.getElementById('modalObsPagto').value = '';
+      document.getElementById('modalPagamento').classList.add('ativo');
+    }
+
+    function fecharModalPagamento() {
+      document.getElementById('modalPagamento').classList.remove('ativo');
+      comandaSelecionadaId = null;
+    }
+
+    async function confirmarRecebimento() {
+      const cmd = comandas.find(c => c.id === comandaSelecionadaId);
+      if (!cmd) return;
+
+      const pagoAtual = Number(cmd.pago || 0);
+      const saldoAtual = cmd.restante !== undefined ? Number(cmd.restante) : Number(cmd.total);
+      const valorRecebido = parseFloat(document.getElementById('modalValorPago').value) || 0;
+      const forma = document.getElementById('modalFormaPagto').value.toLowerCase();
+      const obsDigitada = document.getElementById('modalObsPagto').value.trim().toLowerCase();
+
+      if (valorRecebido <= 0 || valorRecebido > saldoAtual + 0.01) {
+        alert('informe um valor válido até ' + formatarMoeda(saldoAtual));
+        return;
+      }
+
+      const btn = document.getElementById('btnConfirmarPagto');
+      btn.disabled = true;
+
+      let novoPagtoDb = null;
+
+      if (forma === 'fiado') {
+        novoPagtoDb = {
+          id: 'pag_' + Date.now(),
+          comanda_id: cmd.id,
+          cliente_nome: cmd.clienteNome.toLowerCase(),
+          valor: valorRecebido,
+          forma: 'fiado',
+          obs: obsDigitada || 'mantido no fiado (pendente)',
+          data: new Date().toLocaleDateString('pt-BR')
+        };
+      } else {
+        const novoPago = Number((pagoAtual + valorRecebido).toFixed(2));
+        const novoRestante = Math.max(0, Number((Number(cmd.total) - novoPago).toFixed(2)));
+        const novoStatus = novoRestante === 0 ? 'paga' : 'parcial';
+
+        if (usandoSupabase) {
+          const { error: errUpdate } = await supabaseClient
+            .from('comandas')
+            .update({ pago: novoPago, restante: novoRestante, status: novoStatus })
+            .eq('id', cmd.id);
+
+          if (errUpdate) {
+            btn.disabled = false;
+            alert('erro ao atualizar comanda: ' + errUpdate.message.toLowerCase());
+            return;
+          }
+        }
+
+        cmd.pago = novoPago;
+        cmd.restante = novoRestante;
+        cmd.status = novoStatus;
+
+        novoPagtoDb = {
+          id: 'pag_' + Date.now(),
+          comanda_id: cmd.id,
+          cliente_nome: cmd.clienteNome.toLowerCase(),
+          valor: valorRecebido,
+          forma: forma,
+          obs: obsDigitada || (cmd.restante === 0 ? 'quitação' : 'pagamento parcial'),
+          data: new Date().toLocaleDateString('pt-BR')
+        };
+      }
+
+      if (novoPagtoDb) {
+        if (usandoSupabase) {
+          await supabaseClient.from('pagamentos').insert([novoPagtoDb]);
+        }
+        pagamentos.unshift({
+          ...novoPagtoDb,
+          comandaId: novoPagtoDb.comanda_id,
+          clienteNome: novoPagtoDb.cliente_nome
+        });
+      }
+
+      salvarLocal();
+      btn.disabled = false;
+      fecharModalPagamento();
+      renderizarTudo();
+    }
+
+    async function excluirComanda(comandaId) {
+      if (!confirm('deseja excluir esta comanda e seus registros vinculados?')) return;
+
+      if (usandoSupabase) {
+        const { error } = await supabaseClient.from('comandas').delete().eq('id', comandaId);
+        if (error) {
+          alert('erro ao excluir comanda: ' + error.message.toLowerCase());
+          return;
+        }
+      }
+
+      comandas = comandas.filter(c => c.id !== comandaId);
+      pagamentos = pagamentos.filter(p => p.comandaId !== comandaId);
+      salvarLocal();
+      renderizarTudo();
+    }
+
+    function renderizarComandas() {
+      const filtro = document.getElementById('filtroStatusComanda').value;
+      const lista = comandas.filter(c => {
+        if (filtro === 'pendentes') return c.status !== 'paga';
+        if (filtro === 'paga') return c.status === 'paga';
+        return true;
+      });
+
+      let totalGeral = 0;
+      let totalRecebido = 0;
+      let totalPendente = 0;
+
+      comandas.forEach(c => {
+        const tot = Number(c.total || 0);
+        const pag = c.pago !== undefined ? Number(c.pago) : (c.status === 'paga' ? tot : 0);
+        const rest = c.restante !== undefined ? Number(c.restante) : Math.max(0, tot - pag);
+
+        totalGeral += tot;
+        totalRecebido += pag;
+        totalPendente += rest;
+      });
+
+      document.getElementById('kpiTotalGeral').textContent = formatarMoeda(totalGeral);
+      document.getElementById('kpiRecebido').textContent = formatarMoeda(totalRecebido);
+      document.getElementById('kpiPendente').textContent = formatarMoeda(totalPendente);
+
+      const tbody = document.getElementById('tabelaComandas');
+      if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px;">nenhuma comanda encontrada.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lista.map(c => {
+        const tot = Number(c.total || 0);
+        const pag = c.pago !== undefined ? Number(c.pago) : (c.status === 'paga' ? tot : 0);
+        const rest = c.restante !== undefined ? Number(c.restante) : Math.max(0, tot - pag);
+        const resumoItens = (c.itens || []).map(i => `${i.qtd}x ${i.nome.toLowerCase()}`).join(', ');
+
+        let badgeClass = 'status-aberta';
+        let badgeTexto = c.formaInicial === 'fiado' ? 'fiado' : 'em aberto';
+        if (c.status === 'paga' || rest === 0) {
+          badgeClass = 'status-paga';
+          badgeTexto = 'paga';
+        } else if (c.status === 'parcial' || pag > 0) {
+          badgeClass = 'status-parcial';
+          badgeTexto = 'parcial';
+        }
+
+        return `
+          <tr>
+            <td><strong>${c.clienteNome.toLowerCase()}</strong><br><small style="color:var(--text-muted);">${c.data}</small></td>
+            <td>${resumoItens}</td>
+            <td><strong>${formatarMoeda(tot)}</strong></td>
+            <td style="color:var(--accent-emerald);">${formatarMoeda(pag)}</td>
+            <td style="color:${rest > 0 ? 'var(--accent-amber)' : 'var(--text-muted)'};"><strong>${formatarMoeda(rest)}</strong></td>
+            <td><span class="status-tag ${badgeClass}">${badgeTexto}</span></td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                ${rest > 0 ? `<button class="btn btn-sm" onclick="abrirModalPagamento('${c.id}')">receber</button>` : ''}
+                <button class="btn btn-outline btn-sm" onclick="excluirComanda('${c.id}')">x</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderizarHistoricoPagamentos() {
+      const filtro = document.getElementById('filtroFormaPagto').value;
+      const lista = filtro === 'TODAS' ? pagamentos : pagamentos.filter(p => p.forma.toLowerCase() === filtro.toLowerCase());
+      const tbody = document.getElementById('tabelaPagamentosGerais');
+
+      if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:14px;">nenhuma movimentação registrada.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lista.map(p => {
+        const formaLower = p.forma.toLowerCase();
+        const formaHtml = formaLower === 'fiado'
+          ? `<span class="badge-fiado">fiado</span>`
+          : formaLower;
+
+        return `
+          <tr>
+            <td>${p.data}</td>
+            <td><strong>${p.clienteNome.toLowerCase()}</strong><br><small style="color:var(--text-muted);">${(p.obs || '').toLowerCase()}</small></td>
+            <td>${formaHtml}</td>
+            <td><strong>${formatarMoeda(p.valor)}</strong></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderizarTudo() {
+      renderizarClientes();
+      renderizarProdutos();
+      renderizarComandas();
+      renderizarHistoricoPagamentos();
+    }
+
+    inicializarSistema();
+  </script>
+</body>
+</html>
